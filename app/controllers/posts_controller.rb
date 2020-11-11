@@ -1,18 +1,26 @@
 class PostsController < ApplicationController
+	Max_page_size = 3
 
   def index
-  	@posts = Post.all()
+  	page_token = params.has_key?(:older) ? params[:older] : params[:newer]
+
+  	paginate(page_token) 
 
   end
 
   def topic
+  	page_token = params.has_key?(:older) ? params[:older] : params[:newer]
+
   	@topic = Topic.find_by(alias: params[:topic])
-  	@posts = @topic.posts
+  	paginate(page_token, @topic.id)
+
   	render 'index'
   end	
 
   def show
   	@post = Post.find(params[:id])
+    @comments = Comment.comments_for_post(@post.id)
+    @replies = Comment.replies_for_post(@post.id)
 
   end
 
@@ -47,9 +55,35 @@ class PostsController < ApplicationController
   	end		
   end
 
+  def destroy
+    Post.find(params[:id]).destroy
+    redirect_to posts_url
+  end
+
   private
   def post_params
+  	params[:post][:topic_id] = params[:post][:topic]
   	params.require(:post).permit(:title, :body, :topic_id) 		
-  end	
+  end
+
+    def paginate(page_tocen, topic_id = nil)
+      pagination = Services::Pagination.new(page_tocen, topic_id)
+
+	   	if page_tocen.present?
+
+	   		if params.has_key?(:newer)
+	   			@posts = pagination.newer
+	   		else
+	   		  	@posts = pagination.older
+	   		end
+	   	else
+	   		@posts = pagination.first_page
+	   	end
+	   	
+	   	@has_newer = pagination.has_newer
+	   	@has_older = pagination.has_older
+
+	   	@page_token = pagination.construct_page_token
+    end		 	  	
 
 end
